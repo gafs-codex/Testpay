@@ -40,7 +40,7 @@ export default function HeroSection() {
 
                         <div className="mt-8 flex flex-wrap gap-3">
                             <Link
-                                href="/signup"
+                                href="/register"
                                 className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-8 text-sm font-semibold text-primary-foreground shadow-glow transition hover:brightness-110 font-sans"
                             >
                                 Claim 1,000 TestCoin
