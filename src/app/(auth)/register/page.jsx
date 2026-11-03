@@ -2,17 +2,47 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
+import { createClient } from "@/lib/supabase/client";
 
 export default function RegisterPage() {
+    const router = useRouter();
+    const supabase = createClient();
+
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
-    function handleSubmit(event) {
+    async function handleGoogleSignUp() {
+        setError("");
+        setIsGoogleLoading(true);
+
+        try {
+            const { error: googleError } =
+                await supabase.auth.signInWithOAuth({
+                    provider: "google",
+                    options: {
+                        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+                    },
+                });
+
+            if (googleError) {
+                setError(googleError.message);
+                setIsGoogleLoading(false);
+            }
+        } catch (err) {
+            setError("Unable to sign up with Google. Please try again.");
+            console.error("Google sign-up error:", err);
+            setIsGoogleLoading(false);
+        }
+    }
+
+    async function handleSubmit(event) {
         event.preventDefault();
 
         setError("");
@@ -33,15 +63,48 @@ export default function RegisterPage() {
 
         setIsSubmitting(true);
 
-        // TODO: Send the form data to your registration API.
-        // This does not create an account until you connect a backend.
-        console.log("Registration form submitted:", {
-            name: trimmedName,
-            email: trimmedEmail,
-        });
+        try {
+            const { data, error: signUpError } = await supabase.auth.signUp({
+                email: trimmedEmail,
+                password,
+                options: {
+                    data: {
+                        display_name: trimmedName,
+                    },
+                    emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+                },
+            });
 
-        setSuccess("Form validated. Connect your API to create an account.");
-        setIsSubmitting(false);
+            if (signUpError) {
+                setError(signUpError.message);
+                return;
+            }
+
+            // If email confirmation is disabled, Supabase may create a session immediately.
+            if (data.session) {
+                router.push("/dashboard");
+                router.refresh();
+                return;
+            }
+
+            // If email confirmation is enabled, the user must confirm their email first.
+            setSuccess(
+                "Your account has been created! Please check your email to confirm your account before signing in."
+            );
+        } catch (err) {
+            setError("Something went wrong. Please try again.");
+            console.error("Registration error:", err);
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    function clearRegistrationForm() {
+        setName("");
+        setEmail("");
+        setPassword("");
+        setError("");
+        setSuccess("");
     }
 
     return (
@@ -61,13 +124,12 @@ export default function RegisterPage() {
 
                 <button
                     type="button"
-                    onClick={() =>
-                        setError("Google sign-in is not connected yet.")
-                    }
-                    className="mt-6 inline-flex h-10 w-full items-center justify-center gap-3 rounded-md border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+                    onClick={handleGoogleSignUp}
+                    disabled={isGoogleLoading || isSubmitting}
+                    className="mt-6 inline-flex h-10 w-full items-center justify-center gap-3 rounded-md border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     <FcGoogle size={20} />
-                    Continue with Google
+                    {isGoogleLoading ? "Connecting to Google..." : "Continue with Google"}
                 </button>
 
                 <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
@@ -78,10 +140,7 @@ export default function RegisterPage() {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-1.5">
-                        <label
-                            htmlFor="name"
-                            className="text-sm font-medium"
-                        >
+                        <label htmlFor="name" className="text-sm font-medium">
                             Display name
                         </label>
 
@@ -100,10 +159,7 @@ export default function RegisterPage() {
                     </div>
 
                     <div className="space-y-1.5">
-                        <label
-                            htmlFor="email"
-                            className="text-sm font-medium"
-                        >
+                        <label htmlFor="email" className="text-sm font-medium">
                             Email
                         </label>
 
@@ -122,10 +178,7 @@ export default function RegisterPage() {
                     </div>
 
                     <div className="space-y-1.5">
-                        <label
-                            htmlFor="password"
-                            className="text-sm font-medium"
-                        >
+                        <label htmlFor="password" className="text-sm font-medium">
                             Password
                         </label>
 
@@ -169,6 +222,7 @@ export default function RegisterPage() {
                     Have an account?
                     <Link
                         href="/login"
+                        onClick={clearRegistrationForm}
                         className="hover:text-foreground hover:underline"
                     >
                         Sign in

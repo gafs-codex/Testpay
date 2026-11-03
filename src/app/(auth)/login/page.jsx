@@ -3,30 +3,77 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
+    const router = useRouter();
+    const supabase = createClient();
+
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
-    function handleSubmit(event) {
+    async function handleSubmit(event) {
         event.preventDefault();
         setError("");
 
-        if (!email.trim() || !password) {
+        const trimmedEmail = email.trim();
+
+        if (!trimmedEmail || !password) {
             setError("Please enter your email and password.");
             return;
         }
 
         setIsSubmitting(true);
 
-        // Connect your authentication API here.
-        // This currently validates the form, not the user's credentials.
-        console.log("Login form submitted:", { email });
+        try {
+            const { error: loginError } =
+                await supabase.auth.signInWithPassword({
+                    email: trimmedEmail,
+                    password,
+                });
 
-        setIsSubmitting(false);
+            if (loginError) {
+                setError(loginError.message);
+                return;
+            }
+
+            router.push("/dashboard");
+            router.refresh();
+        } catch (err) {
+            setError("Something went wrong. Please try again.");
+            console.error("Login error:", err);
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    async function handleGoogleSignIn() {
+        setError("");
+        setIsGoogleLoading(true);
+
+        try {
+            const { error: googleError } =
+                await supabase.auth.signInWithOAuth({
+                    provider: "google",
+                    options: {
+                        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+                    },
+                });
+
+            if (googleError) {
+                setError(googleError.message);
+                setIsGoogleLoading(false);
+            }
+        } catch (err) {
+            setError("Unable to sign in with Google. Please try again.");
+            console.error("Google sign-in error:", err);
+            setIsGoogleLoading(false);
+        }
     }
 
     return (
@@ -46,13 +93,12 @@ export default function LoginPage() {
 
                 <button
                     type="button"
-                    onClick={() => {
-                        setError("Google sign-in is not connected yet.");
-                    }}
-                    className="mt-6 inline-flex h-10 w-full items-center justify-center gap-3 rounded-md border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+                    onClick={handleGoogleSignIn}
+                    disabled={isGoogleLoading || isSubmitting}
+                    className="mt-6 inline-flex h-10 w-full items-center justify-center gap-3 rounded-md border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     <FcGoogle size={20} />
-                    Continue with Google
+                    {isGoogleLoading ? "Connecting to Google..." : "Continue with Google"}
                 </button>
 
                 <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
@@ -63,10 +109,7 @@ export default function LoginPage() {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-1.5">
-                        <label
-                            htmlFor="email"
-                            className="text-sm font-medium"
-                        >
+                        <label htmlFor="email" className="text-sm font-medium">
                             Email
                         </label>
 
@@ -84,10 +127,7 @@ export default function LoginPage() {
                     </div>
 
                     <div className="space-y-1.5">
-                        <label
-                            htmlFor="password"
-                            className="text-sm font-medium"
-                        >
+                        <label htmlFor="password" className="text-sm font-medium">
                             Password
                         </label>
 
@@ -112,7 +152,7 @@ export default function LoginPage() {
 
                     <button
                         type="submit"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || isGoogleLoading}
                         className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                         {isSubmitting ? "Signing in..." : "Sign in"}

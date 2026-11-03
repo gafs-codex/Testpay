@@ -29,7 +29,7 @@ export default function RootLayout({ children }) {
       lang="en"
       className={`${spaceGrotesk.variable} ${jetBrainsMono.variable} h-full antialiased`}
     >
-      <Navbar />
+      {/* <Navbar /> */}
       <body className="min-h-full flex flex-col font-sans">
         {children}
       </body>
