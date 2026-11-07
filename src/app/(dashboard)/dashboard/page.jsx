@@ -1,6 +1,6 @@
 "use client";
-
 import Link from "next/link";
+import PaymentActivity from "@/components/PaymentActivity";
 
 const ledgerFilters = ["All", "Faucet", "Payment", "Transfer"];
 
@@ -87,6 +87,9 @@ export default function Dashboard() {
                     </div>
                 })}
             </section>
+
+
+            <PaymentActivity />
 
             <section className="grid gap-6 lg:grid-cols-3">
 
