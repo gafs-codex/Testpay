@@ -1,7 +1,8 @@
 
 import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
+// import Navbar from "@/components/Navbar";
+import { Toaster } from "sonner";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -32,6 +33,13 @@ export default function RootLayout({ children }) {
       {/* <Navbar /> */}
       <body className="min-h-full flex flex-col font-sans">
         {children}
+
+        <Toaster
+          position="top-right"
+          theme="dark"
+          richColors
+          closeButton
+        />
       </body>
     </html>
   );

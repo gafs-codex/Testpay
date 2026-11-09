@@ -42,7 +42,7 @@ export default function LoginPage() {
                 return;
             }
 
-            router.push("/dashboard");
+            router.push("/wallet");
             router.refresh();
         } catch (err) {
             setError("Something went wrong. Please try again.");
@@ -61,7 +61,7 @@ export default function LoginPage() {
                 await supabase.auth.signInWithOAuth({
                     provider: "google",
                     options: {
-                        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+                        redirectTo: `${window.location.origin}/auth/callback?next=/wallet`,
                     },
                 });
 

@@ -1,10 +1,19 @@
 import Navbar from "@/components/Navbar";
+import DashboardNavbar from "@/components/DashboardNavbar";
+import { getCurrentUser } from "@/lib/auth";
 
-export default function MarketingLayout({ children }) {
+export default async function MarketingLayout({ children }) {
+    const user = await getCurrentUser();
+
     return (
         <>
-            <Navbar />
+            {user ? (
+                <DashboardNavbar email={user.email} />
+            ) : (
+                <Navbar />
+            )}
+
             {children}
         </>
-    )
+    );
 }

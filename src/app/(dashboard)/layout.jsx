@@ -3,10 +3,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 export default async function DashboardLayout({ children }) {
-    const user = await getCurrentUser()
+    const user = await getCurrentUser();
 
     if (!user) {
-        redirect(`/login`)
+        redirect("/login");
     }
 
     return (
@@ -14,5 +14,5 @@ export default async function DashboardLayout({ children }) {
             <DashboardNavbar email={user.email} />
             {children}
         </>
-    )
+    );
 }

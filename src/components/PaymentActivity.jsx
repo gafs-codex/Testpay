@@ -1,5 +1,7 @@
+
 "use client";
 
+import { useMemo, useState } from "react";
 import {
     BarChart,
     Bar,
@@ -10,29 +12,57 @@ import {
     ResponsiveContainer,
 } from "recharts";
 
-const paymentActivity = [
-    { date: "24 Oct", paid: 0, pending: 0, canceled: 0 },
-    { date: "25 Oct", paid: 0, pending: 0, canceled: 0 },
-    { date: "26 Oct", paid: 0, pending: 0, canceled: 0 },
-    { date: "27 Oct", paid: 0, pending: 0, canceled: 0 },
-    { date: "28 Oct", paid: 0, pending: 0, canceled: 0 },
-    { date: "29 Oct", paid: 0, pending: 0, canceled: 0 },
-    { date: "30 Oct", paid: 0, pending: 0, canceled: 0 },
-    { date: "31 Oct", paid: 0, pending: 0, canceled: 0 },
-    { date: "1 Nov", paid: 0, pending: 0, canceled: 0 },
-    { date: "2 Nov", paid: 0, pending: 0, canceled: 0 },
-    { date: "3 Nov", paid: 0, pending: 0, canceled: 0 },
-    { date: "4 Nov", paid: 0, pending: 0, canceled: 0 },
-    { date: "5 Nov", paid: 0, pending: 0, canceled: 0 },
-    { date: "6 Nov", paid: 0, pending: 0, canceled: 0 },
-];
-
+// Temporary empty data.
+// Later, these records will come from Supabase.
+const mockPayments = [];
 
 const axisStyle = {
     fill: "#8A9B94",
     fontSize: 12,
     fontFamily: "JetBrains Mono, monospace",
 };
+
+const filters = [
+    { label: "7 days", days: 7 },
+    { label: "14 days", days: 14 },
+    { label: "30 days", days: 30 },
+];
+
+// Convert a date to YYYY-MM-DD using local time.
+function getDateKey(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+}
+
+// Generate the selected number of days, including today.
+function generateDateRange(days) {
+    const dates = [];
+    const today = new Date();
+
+    for (let i = days - 1; i >= 0; i--) {
+        const date = new Date(
+            today.getFullYear(),
+            today.getMonth(),
+            today.getDate() - i
+        );
+
+        dates.push({
+            key: getDateKey(date),
+            date: date.toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+            }),
+            paid: 0,
+            pending: 0,
+            canceled: 0,
+        });
+    }
+
+    return dates;
+}
 
 function PaymentTooltip({ active, payload, label }) {
     if (!active || !payload?.length) return null;
@@ -41,7 +71,9 @@ function PaymentTooltip({ active, payload, label }) {
 
     return (
         <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-xl">
-            <p className="mb-2 font-mono text-sm text-foreground">{label}</p>
+            <p className="mb-2 font-mono text-sm text-foreground">
+                {label}
+            </p>
 
             <p className="mb-2 font-mono text-sm text-[#80FF65]">
                 paid : {payment.paid}
@@ -58,17 +90,61 @@ function PaymentTooltip({ active, payload, label }) {
     );
 }
 
-export default function PaymentActivity() {
+export default function PaymentActivity({ payments = mockPayments }) {
+    const [selectedDays, setSelectedDays] = useState(14);
+
+    const paymentActivity = useMemo(() => {
+        const dates = generateDateRange(selectedDays);
+
+        // Create a quick lookup for each date.
+        const dateMap = new Map(
+            dates.map((item) => [item.key, item])
+        );
+
+        // Add payment counts to their corresponding dates.
+        payments.forEach((payment) => {
+            const paymentDate = new Date(payment.created_at);
+
+            if (Number.isNaN(paymentDate.getTime())) return;
+
+            const key = getDateKey(paymentDate);
+            const day = dateMap.get(key);
+
+            if (!day) return;
+
+            const status = payment.status?.toLowerCase();
+
+            if (status === "paid") day.paid++;
+            if (status === "pending") day.pending++;
+            if (status === "canceled" || status === "cancelled") {
+                day.canceled++;
+            }
+        });
+
+        return dates;
+    }, [payments, selectedDays]);
+
     return (
         <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-4">
                 <h2 className="font-semibold text-foreground">
                     Payment activity
                 </h2>
 
-                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground sm:text-xs">
-                    last 14 days
-                </span>
+                <div className="flex items-center gap-1 rounded-lg border border-border p-1">
+                    {filters.map((filter) => (
+                        <button
+                            key={filter.days}
+                            onClick={() => setSelectedDays(filter.days)}
+                            className={`rounded-md px-3 py-1.5 font-mono text-xs transition-colors ${selectedDays === filter.days
+                                    ? "bg-primary text-primary-foreground"
+                                    : "text-muted-foreground hover:text-foreground"
+                                }`}
+                        >
+                            {filter.label}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             <div className="mt-5 h-[320px] w-full">
@@ -84,11 +160,12 @@ export default function PaymentActivity() {
                             tickLine={false}
                             tick={axisStyle}
                             dy={8}
+                            interval={selectedDays === 30 ? 3 : 0}
                         />
 
                         <YAxis
-                            domain={[0, 4]}
-                            ticks={[0, 1, 2, 3, 4]}
+                            domain={[0, "dataMax + 1"]}
+                            allowDecimals={false}
                             axisLine={false}
                             tickLine={false}
                             tick={axisStyle}

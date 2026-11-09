@@ -27,7 +27,7 @@ export default function RegisterPage() {
                 await supabase.auth.signInWithOAuth({
                     provider: "google",
                     options: {
-                        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+                        redirectTo: `${window.location.origin}/auth/callback?next=/wallet`,
                     },
                 });
 
@@ -71,7 +71,7 @@ export default function RegisterPage() {
                     data: {
                         display_name: trimmedName,
                     },
-                    emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+                    emailRedirectTo: `${window.location.origin}/auth/callback?next=/wallet`,
                 },
             });
 
@@ -82,7 +82,7 @@ export default function RegisterPage() {
 
             // If email confirmation is disabled, Supabase may create a session immediately.
             if (data.session) {
-                router.push("/dashboard");
+                router.push("/wallet");
                 router.refresh();
                 return;
             }
