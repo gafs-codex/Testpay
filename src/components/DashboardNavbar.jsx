@@ -51,8 +51,10 @@ export default function DashboardNavbar({ email }) {
                     <button
                         type="button"
                         onClick={() => setShowLogoutDialog(true)}
-                        className="font-mono text-xl font-bold text-foreground"
+                        className="font-mono text-xl font-bold text-foreground flex gap-2"
                     >
+                        <span className="grid h-7 w-7 place-items-center rounded-md bg-primary text-primary-foreground">₮</span>
+
                         testpay<span className="text-primary animate-blink">_</span>
                     </button>
 
