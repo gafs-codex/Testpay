@@ -1,19 +1,28 @@
+
+import { Suspense } from "react";
 import Navbar from "@/components/Navbar";
 import DashboardNavbar from "@/components/DashboardNavbar";
 import { getCurrentUser } from "@/lib/auth";
 
-export default async function MarketingLayout({ children }) {
-    const user = await getCurrentUser();
+// This component checks the user's session.
+async function MarketingNavbar() {
+  const user = await getCurrentUser();
 
-    return (
-        <>
-            {user ? (
-                <DashboardNavbar email={user.email} />
-            ) : (
-                <Navbar />
-            )}
+  if (user) {
+    return <DashboardNavbar email={user.email} />;
+  }
 
-            {children}
-        </>
-    );
+  return <Navbar />;
+}
+
+export default function MarketingLayout({ children }) {
+  return (
+    <>
+      <Suspense fallback={<Navbar />}>
+        <MarketingNavbar />
+      </Suspense>
+
+      {children}
+    </>
+  );
 }
