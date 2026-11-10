@@ -27,8 +27,15 @@ export async function proxy(request) {
     );
 
     // Refresh the session so it doesn't expire
-    await supabase.auth.getClaims();
+    const { data } = await supabase.auth.getClaims();
+    const { pathname } = request.nextUrl;
 
+    if (!data?.claims && pathname.startsWith("/pay/")) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/login";
+        url.search = `?next=${encodeURIComponent(pathname)}`;
+        return NextResponse.redirect(url);
+    }
     return supabaseResponse;
 }
 

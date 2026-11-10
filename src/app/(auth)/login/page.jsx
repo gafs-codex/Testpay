@@ -52,6 +52,11 @@ export default function LoginPage() {
         }
     }
 
+    function getNext() {
+        const next = new URLSearchParams(window.location.search).get("next");
+        return next && next.startsWith("/") && !next.startsWith("//") ? next : "/wallet";
+    }
+
     async function handleGoogleSignIn() {
         setError("");
         setIsGoogleLoading(true);
@@ -61,7 +66,7 @@ export default function LoginPage() {
                 await supabase.auth.signInWithOAuth({
                     provider: "google",
                     options: {
-                        redirectTo: `${window.location.origin}/auth/callback?next=/wallet`,
+                        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(getNext())}`,
                     },
                 });
 
@@ -75,6 +80,9 @@ export default function LoginPage() {
             setIsGoogleLoading(false);
         }
     }
+
+
+
 
     return (
         <main className="bg-grid flex min-h-[calc(100dvh-3.5rem)] items-center justify-center px-4 py-8">

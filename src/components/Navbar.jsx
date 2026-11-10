@@ -12,16 +12,15 @@ export default function Navbar() {
     const pathname = usePathname()
     return (
         <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur">
-            <nav className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4">
-                <Link
-                    href={`/`}
-                    className="flex items-center gap-2 font-mono text-sm font-bold tracking-tight active"
-                >
-                    <span className="grid h-7 w-7 place-items-center rounded-md bg-primary text-primary-foreground">₮</span>
-                    <span>testpay
-                        <span className="text-primary animate-blink">_</span>
-                    </span>
-                </Link>
+            <nav className="mx-auto flex h-14 w-full max-w-[1600px] items-center gap-6 px-6 lg:px-10">                <Link
+                href={`/`}
+                className="flex items-center gap-2 font-mono text-sm font-bold tracking-tight active"
+            >
+                <span className="grid h-7 w-7 place-items-center rounded-md bg-primary text-primary-foreground">₮</span>
+                <span>testpay
+                    <span className="text-primary animate-blink">_</span>
+                </span>
+            </Link>
 
                 <div className="items-center gap-5 md:flex">
                     {links.map((link) => {

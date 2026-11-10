@@ -20,8 +20,7 @@ export default function HeroSection() {
     return (
         <>
             <section className="bg-grid border-b border-border">
-                <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 md:py-28 lg:grid-cols-2">
-                    {/* Left column */}
+                <div className="mx-auto grid w-full max-w-[1600px] items-center gap-12 px-6 py-20 md:py-28 lg:grid-cols-2 lg:px-10">                    {/* Left column */}
                     <div>
                         <p className="font-mono text-xs text-primary">
             // stripe test mode, but it's yours

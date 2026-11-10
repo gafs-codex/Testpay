@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import PaymentActivity from "@/components/PaymentActivity";
 import Field from "@/components/Field";
 import { createClient } from "@/lib/supabase/client";
-import { toast } from "sonner";
+import { formatAmount, amountColor } from "@/lib/format";
 
 const LEDGER_FILTERS = ["All", "Faucet", "Payment", "Transfer"];
 const COOLDOWN_MS = 6 * 60 * 60 * 1000;
+const ADDRESS_PATTERN = /^tp_[a-f0-9]{20}$/;
 const initialSend = { wallet: "", amount: "", memo: "" };
 
 export default function WalletPage() {
@@ -18,7 +20,6 @@ export default function WalletPage() {
     const [transactions, setTransactions] = useState([]);
     const [filter, setFilter] = useState("All");
     const [sendForm, setSendForm] = useState(initialSend);
-    const [message, setMessage] = useState({ type: "", text: "" });
     const [copied, setCopied] = useState(false);
     const [claiming, setClaiming] = useState(false);
     const [sending, setSending] = useState(false);
@@ -28,8 +29,13 @@ export default function WalletPage() {
             supabase.from("wallets").select("address, balance, last_claim_at").single(),
             supabase.from("transactions").select("*").order("created_at", { ascending: false }).limit(50),
         ]);
-        if (walletRes.data) setWallet(walletRes.data);
-        if (txRes.data) setTransactions(txRes.data);
+
+        if (walletRes.error || txRes.error) {
+            toast.error("Couldn't load your wallet. Please refresh the page.");
+            return;
+        }
+        setWallet(walletRes.data);
+        setTransactions(txRes.data);
     }, [supabase]);
 
     useEffect(() => {
@@ -56,24 +62,28 @@ export default function WalletPage() {
 
     async function handleCopy() {
         if (!wallet) return;
-        await navigator.clipboard.writeText(wallet.address);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        try {
+            await navigator.clipboard.writeText(wallet.address);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            toast.error("Couldn't copy. Please copy the address manually.");
+        }
     }
 
     async function handleClaim() {
-        setMessage({ type: "", text: "" });
         setClaiming(true);
-        const { error } = await supabase.rpc("claim_faucet");
-        setClaiming(false);
-
-        if (error) {
-            setMessage({ type: "error", text: error.message });
-            return;
+        try {
+            const { error } = await supabase.rpc("claim_faucet");
+            if (error) {
+                toast.error(error.message);
+                return;
+            }
+            toast.success("1,000 TC added to your wallet.");
+            await load();
+        } finally {
+            setClaiming(false);
         }
-        // setMessage({ type: "success", text: "1,000 TC added to your wallet." });
-        toast.success("1,000 TC added to your wallet.");
-        await load();
     }
 
     function handleSendChange(event) {
@@ -81,52 +91,54 @@ export default function WalletPage() {
         setSendForm((prev) => ({ ...prev, [name]: value }));
     }
 
+    // Returns an error message, or null when the form is valid
+    function validateSend({ wallet: to, amount }) {
+        const address = to.trim().toLowerCase();
+        const value = Number(amount);
+
+        if (!address) return "Enter the recipient's wallet address.";
+        if (!ADDRESS_PATTERN.test(address)) return "Enter a valid wallet address (tp_ followed by 20 characters).";
+        if (address === wallet?.address) return "You can't send TestCoin to your own wallet.";
+        if (!amount) return "Enter an amount to send.";
+        if (!Number.isInteger(value) || value < 1) return "Amount must be a whole number of at least 1.";
+        if (wallet && value > wallet.balance) {
+            return `Insufficient balance. You have ${wallet.balance.toLocaleString()} TC.`;
+        }
+        return null;
+    }
+
     async function handleSend(event) {
         event.preventDefault();
-        setMessage({ type: "", text: "" });
 
-        const to = sendForm.wallet.trim();
+        const problem = validateSend(sendForm);
+        if (problem) {
+            toast.error(problem);
+            return;
+        }
+
         const amount = Number(sendForm.amount);
-
-        if (!to.startsWith("tp_")) {
-            setMessage({ type: "error", text: "Wallet addresses start with tp_." });
-            return;
-        }
-        if (!Number.isInteger(amount) || amount < 1) {
-            setMessage({ type: "error", text: "Enter a whole amount of at least 1." });
-            return;
-        }
-
         setSending(true);
-        const { error } = await supabase.rpc("send_testcoin", {
-            to_address: to,
-            amount,
-            memo: sendForm.memo.trim() || null,
-        });
-        setSending(false);
-
-        if (error) {
-            setMessage({ type: "error", text: error.message });
-            return;
+        try {
+            const { error } = await supabase.rpc("send_testcoin", {
+                to_address: sendForm.wallet.trim().toLowerCase(),
+                amount,
+                memo: sendForm.memo.trim() || null,
+            });
+            if (error) {
+                toast.error(error.message);
+                return;
+            }
+            toast.success(`Sent ${amount.toLocaleString()} TC.`);
+            setSendForm(initialSend);
+            await load();
+        } finally {
+            setSending(false);
         }
-        setSendForm(initialSend);
-        setMessage({ type: "success", text: `Sent ${amount} TC.` });
-        await load();
     }
 
     return (
         <main className="mx-auto w-full max-w-[1440px] space-y-6 px-6 py-8 lg:px-8">
-            {message.text && (
-                <p
-                    role={message.type === "error" ? "alert" : "status"}
-                    className={`rounded-md border px-4 py-3 text-sm ${message.type === "error"
-                        ? "border-destructive/40 text-destructive"
-                        : "border-primary/40 text-primary"
-                        }`}
-                >
-                    {message.text}
-                </p>
-            )}
+
 
             <section className="grid gap-6 lg:grid-cols-3">
                 {/* Balance */}
@@ -179,6 +191,15 @@ export default function WalletPage() {
                     >
                         {claiming ? "Claiming..." : "Claim 1,000 TestCoin"}
                     </button>
+
+
+                    <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-8 rounded-md px-3 text-xs mt-3 w-full">
+                        ↑ Request limit increase
+                    </button>
+
+                    <p className="mt-3 text-center font-mono text-[10px] text-muted-foreground">
+                        Current limit: 1,000  TC · Every 6  hours
+                    </p>
                 </div>
             </section>
 
@@ -198,7 +219,7 @@ export default function WalletPage() {
 
             <section className="grid gap-6 lg:grid-cols-3">
                 {/* Send form (controlled) */}
-                <form onSubmit={handleSend} className="space-y-4 rounded-xl border border-border bg-card p-6">
+                <form onSubmit={handleSend} noValidate className="space-y-4 rounded-xl border border-border bg-card p-6">
                     <h2 className="font-semibold">Send TestCoin</h2>
 
                     <Field
@@ -277,8 +298,8 @@ export default function WalletPage() {
                                         </p>
                                     </div>
                                     <div className="text-right">
-                                        <p className={`font-mono font-semibold ${tx.amount > 0 ? "text-primary" : ""}`}>
-                                            {tx.amount > 0 ? "+" : ""}{tx.amount} TC
+                                        <p className={`font-mono font-semibold ${amountColor(tx.amount)}`}>
+                                            {formatAmount(tx.amount)} TC
                                         </p>
                                         <p className="text-xs text-muted-foreground">
                                             {new Date(tx.created_at).toLocaleString()}

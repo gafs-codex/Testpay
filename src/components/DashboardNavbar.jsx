@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 const links = [
     { href: "/wallet", label: "Wallet" },
+    { href: "/card", label: "Card" },
     { href: "/payments", label: "Payments" },
     { href: "/developers", label: "Developers" },
     { href: "/docs", label: "Docs" },
