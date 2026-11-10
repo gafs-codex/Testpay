@@ -215,7 +215,7 @@ export default function WalletPage() {
                 ))}
             </section>
 
-            <PaymentActivity payments={payments} />
+            <PaymentActivity />
 
             <section className="grid gap-6 lg:grid-cols-3">
                 {/* Send form (controlled) */}
