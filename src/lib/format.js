@@ -11,7 +11,7 @@ export function amountColor(amount) {
 export const shortId = (id) => id.slice(0, 8);
 
 export function statusClass(status) {
-    if (status === "paid") return "bg-primary/10 text-primary";
-    if (status === "canceled") return "bg-destructive/10 text-destructive";
+    if (status === "paid" || status === "success") return "bg-primary/10 text-primary";
+    if (status === "canceled" || status === "failed") return "bg-destructive/10 text-destructive";
     return "bg-secondary text-muted-foreground"; // pending
 }

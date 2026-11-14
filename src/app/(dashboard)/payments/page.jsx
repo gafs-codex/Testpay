@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import Field from "@/components/Field";
 import { createClient } from "@/lib/supabase/client";
 import { shortId, statusClass } from "@/lib/format";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import ReceiptButton from "@/components/ReceiptButton";
 
 const FILTERS = ["all", "pending", "paid", "canceled"];
 const initialForm = { amount: "", description: "", success_url: "", cancel_url: "", webhook_url: "" };
@@ -154,8 +156,8 @@ export default function Payments() {
                             type="button"
                             onClick={() => setFilter(name)}
                             className={`inline-flex h-8 cursor-pointer items-center justify-center rounded-md px-3 text-xs font-medium transition-colors ${filter === name
-                                    ? "bg-secondary text-secondary-foreground"
-                                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                ? "bg-secondary text-secondary-foreground"
+                                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                                 }`}
                         >
                             {name}

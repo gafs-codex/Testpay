@@ -107,15 +107,17 @@ export default function PayPage() {
     }
 
     const pending = payment.status === "pending";
+    const canceled = payment.status === "canceled";
+    const tone = TONES[payment.status] ?? TONES.pending;
     const insufficient = balance < payment.amount;
 
     return (
-        <Shell>
+        <Shell cardClass={tone.card}>
             <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
                 Pay {payment.merchant_name}
             </p>
 
-            <p className="mt-3 font-mono text-6xl font-bold tabular-nums text-primary">
+            <p className={`mt-3 font-mono text-6xl font-bold tabular-nums ${tone.amount}`}>
                 {payment.amount.toLocaleString()}
                 <span className="ml-2 text-lg text-muted-foreground">TC</span>
             </p>
@@ -127,26 +129,26 @@ export default function PayPage() {
             <dl className="mt-6 space-y-2 border-t border-border pt-6 font-mono text-sm">
                 <Row label="To" value={payment.seller_address} />
                 <Row label="Payment" value={shortId(payment.id)} />
-                <Row label="Status" value={payment.status} />
+                <Row label="Status" value={payment.status} className={`capitalize ${tone.status}`} />
                 <Row label="Your balance" value={`${balance.toLocaleString()} TC`} />
             </dl>
 
             <div className="mt-6 space-y-3">
-                {payment.is_owner ? (
+                {/* Seller, still pending: can share the link */}
+                {pending && payment.is_owner && (
                     <>
                         <p className="text-sm text-muted-foreground">
                             You created this request, so you can't pay it yourself. Share this link with
                             someone using a different TestPay account.
                         </p>
-                        <button
-                            type="button"
-                            onClick={handleCopyLink}
-                            className="inline-flex h-10 w-full cursor-pointer items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-accent"
-                        >
+                        <button type="button" onClick={handleCopyLink} className={blockButton}>
                             Copy payment link
                         </button>
                     </>
-                ) : pending ? (
+                )}
+
+                {/* Anyone else, still pending: can pay */}
+                {pending && !payment.is_owner && (
                     <>
                         <button
                             type="button"
@@ -170,10 +172,22 @@ export default function PayPage() {
                             </a>
                         )}
                     </>
-                ) : (
-                    <p className="text-center text-sm text-muted-foreground">
-                        This payment has already been {payment.status}.
+                )}
+
+                {/* Paid or canceled: no copy link, no pay button */}
+                {!pending && (
+                    <p
+                        role="status"
+                        className={`text-center text-sm ${canceled ? "text-destructive" : "text-primary"}`}
+                    >
+                        {canceled
+                            ? "This payment was canceled and can no longer be paid."
+                            : "This payment has been paid."}
                     </p>
+                )}
+
+                {payment.status === "paid" && (
+                    <ReceiptButton id={payment.id} label="Download receipt" className={blockButton} />
                 )}
 
                 <p className="text-center text-xs text-muted-foreground">
