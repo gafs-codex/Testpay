@@ -30,6 +30,21 @@ export default function Payments() {
     const [filter, setFilter] = useState("all");
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
+    const [toCancel, setToCancel] = useState(null); // the payment waiting for confirmation
+    const [canceling, setCanceling] = useState(false);
+
+    async function confirmCancel() {
+        setCanceling(true);
+        try {
+            const { error } = await supabase.rpc("cancel_payment", { p_id: toCancel.id });
+            if (error) toast.error(error.message);
+            else toast.success("Payment canceled.");
+            setToCancel(null);
+            await load(); // refresh either way, in case it was paid in the meantime
+        } finally {
+            setCanceling(false);
+        }
+    }
 
     const load = useCallback(async () => {
         const { data, error } = await supabase
@@ -95,15 +110,15 @@ export default function Payments() {
         }
     }
 
-    async function handleCancel(id) {
-        const { error } = await supabase.rpc("cancel_payment", { p_id: id });
-        if (error) {
-            toast.error(error.message);
-            return;
-        }
-        toast.success("Payment canceled.");
-        await load();
-    }
+    // async function handleCancel(id) {
+    //     const { error } = await supabase.rpc("cancel_payment", { p_id: id });
+    //     if (error) {
+    //         toast.error(error.message);
+    //         return;
+    //     }
+    //     toast.success("Payment canceled.");
+    //     await load();
+    // }
 
     const error = (name) =>
         errors[name] && <p role="alert" className="text-xs text-destructive">{errors[name]}</p>;
@@ -191,12 +206,13 @@ export default function Payments() {
                                 {p.status === "pending" && (
                                     <button
                                         type="button"
-                                        onClick={() => handleCancel(p.id)}
+                                        onClick={() => setToCancel(p)}
                                         className="cursor-pointer text-xs text-muted-foreground transition-colors hover:text-destructive"
                                     >
                                         Cancel
                                     </button>
                                 )}
+                                {p.status === "paid" && <ReceiptButton id={p.id} />}
                                 <Link href={`/pay/${p.id}`} className="text-xs font-medium text-primary hover:underline">
                                     Open
                                 </Link>
@@ -205,6 +221,21 @@ export default function Payments() {
                     )}
                 </ul>
             </section>
+            <ConfirmDialog
+                open={Boolean(toCancel)}
+                title="Cancel this payment?"
+                description={
+                    toCancel
+                        ? `"${toCancel.description || "Untitled payment"}" (${toCancel.amount.toLocaleString()} TC) will no longer be payable. This can't be undone.`
+                        : ""
+                }
+                confirmLabel="Yes, cancel payment"
+                cancelLabel="Keep payment"
+                destructive
+                loading={canceling}
+                onConfirm={confirmCancel}
+                onCancel={() => setToCancel(null)}
+            />
         </main>
     );
 }

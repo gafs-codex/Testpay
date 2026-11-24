@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { shortId } from "@/lib/format";
+import ReceiptButton from "@/components/ReceiptButton"; // new
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -14,10 +15,20 @@ const MESSAGES = {
     error: "Couldn't load this payment. Please refresh the page.",
 };
 
-function Shell({ children }) {
+// new: colors per status (canceled = red)
+const TONES = {
+    pending: { card: "border-primary/30 shadow-glow", amount: "text-primary", status: "text-muted-foreground" },
+    paid: { card: "border-primary/30 shadow-glow", amount: "text-primary", status: "text-primary" },
+    canceled: { card: "border-destructive/50", amount: "text-destructive", status: "text-destructive" },
+};
+
+const blockButton =
+    "inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50";
+
+function Shell({ children, cardClass = TONES.pending.card }) {
     return (
         <main className="bg-grid flex min-h-[calc(100dvh-4rem)] items-start justify-center px-4 py-16">
-            <div className="w-full max-w-md rounded-xl border border-primary/30 bg-card p-6 shadow-glow sm:p-8">
+            <div className={`w-full max-w-md rounded-xl border bg-card p-6 sm:p-8 ${cardClass}`}>
                 {children}
             </div>
         </main>

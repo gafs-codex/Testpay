@@ -7,6 +7,8 @@ import PaymentActivity from "@/components/PaymentActivity";
 import Field from "@/components/Field";
 import { createClient } from "@/lib/supabase/client";
 import { formatAmount, amountColor } from "@/lib/format";
+import ReceiptButton from "@/components/ReceiptButton";
+import { shortId } from "@/lib/format"
 
 const LEDGER_FILTERS = ["All", "Faucet", "Payment", "Transfer"];
 const COOLDOWN_MS = 6 * 60 * 60 * 1000;
@@ -23,6 +25,7 @@ export default function WalletPage() {
     const [copied, setCopied] = useState(false);
     const [claiming, setClaiming] = useState(false);
     const [sending, setSending] = useState(false);
+    const [search, setSearch] = useState("");
 
     const load = useCallback(async () => {
         const [walletRes, txRes] = await Promise.all([
@@ -55,11 +58,14 @@ export default function WalletPage() {
         { header: "Total test volume", value: `${payments.reduce((sum, t) => sum + Math.abs(t.amount), 0)} TC` },
     ];
 
-    const visibleTransactions =
-        filter === "All"
-            ? transactions
-            : transactions.filter((t) => t.type === filter.toLowerCase());
-
+    const q = search.trim().toLowerCase();
+    const visibleTransactions = transactions.filter((t) => {
+        if (filter !== "All" && t.type !== filter.toLowerCase()) return false;
+        if (!q) return true;
+        return [t.id, t.memo, t.counterparty, t.type, String(Math.abs(t.amount))].some((value) =>
+            value?.toLowerCase().includes(q)
+        );
+    });
     async function handleCopy() {
         if (!wallet) return;
         try {
@@ -268,6 +274,14 @@ export default function WalletPage() {
                     <div className="flex flex-wrap items-center gap-2 border-b border-border p-4">
                         <h2 className="mr-auto font-semibold">Ledger</h2>
 
+                        <input
+                            type="search"
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="Search ID, amount, note..."
+                            className="h-8 w-44 rounded-md border border-input bg-background px-3 text-xs outline-none placeholder:text-muted-foreground focus:border-primary"
+                        />
+
                         {LEDGER_FILTERS.map((name) => (
                             <button
                                 key={name}
@@ -294,16 +308,17 @@ export default function WalletPage() {
                                     <div className="min-w-0">
                                         <p className="font-medium capitalize">{tx.type}</p>
                                         <p className="truncate font-mono text-xs text-muted-foreground">
-                                            {tx.memo || tx.counterparty || "—"}
+                                            {shortId(tx.id)} · {tx.memo || tx.counterparty || "—"}
                                         </p>
                                     </div>
                                     <div className="text-right">
                                         <p className={`font-mono font-semibold ${amountColor(tx.amount)}`}>
                                             {formatAmount(tx.amount)} TC
                                         </p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {new Date(tx.created_at).toLocaleString()}
-                                        </p>
+                                        <p className="text-xs text-muted-foreground">{new Date(tx.created_at).toLocaleString()}</p>
+                                        {tx.type !== "faucet" && (
+                                            <ReceiptButton id={tx.id} note={tx.memo} className="mt-1 inline-flex cursor-pointer items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50" />
+                                        )}
                                     </div>
                                 </li>
                             ))
