@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
     ShieldCheckIcon, CreditCard, Eye, EyeOff, Snowflake, Copy, Wallet,
@@ -8,6 +8,10 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatAmount, amountColor } from "@/lib/format";
+import ErrorState from "@/components/ErrorState";
+import { PageLoader } from "@/components/Spinner";
+import { friendlyError } from "@/lib/error";
+
 
 const actionBtn =
     "inline-flex h-9 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0";
@@ -22,9 +26,11 @@ export default function Card() {
     const [transactions, setTransactions] = useState([]);
     const [revealed, setRevealed] = useState(false);
     const [frozen, setFrozen] = useState(false); // local demo control only
+    const [status, setStatus] = useState("loading"); // loading | ready | error
+    const [loadError, setLoadError] = useState("");
 
-    useEffect(() => {
-        async function load() {
+    const load = useCallback(async () => {
+        try {
             const [cardRes, walletRes, txRes] = await Promise.all([
                 supabase.from("cards").select("number, cvc, exp_month, exp_year").single(),
                 supabase.from("wallets").select("balance, display_name").single(),
@@ -34,17 +40,24 @@ export default function Card() {
                     .order("created_at", { ascending: false })
                     .limit(5),
             ]);
+            if (cardRes.error) throw cardRes.error;
+            if (walletRes.error) throw walletRes.error;
+            if (txRes.error) throw txRes.error;
 
-            if (cardRes.error || walletRes.error || txRes.error) {
-                toast.error("Couldn't load your card. Please refresh the page.");
-                return;
-            }
             setCard(cardRes.data);
             setWallet(walletRes.data);
             setTransactions(txRes.data);
+            setStatus("ready");
+        } catch (error) {
+            setLoadError(friendlyError(error, "Couldn't load your card."));
+            setStatus("error");
         }
-        load();
     }, [supabase]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
 
     const expiry = card
         ? `${String(card.exp_month).padStart(2, "0")}/${String(card.exp_year).slice(-2)}`
@@ -69,6 +82,19 @@ export default function Card() {
         document.getElementById("recent-activity")?.scrollIntoView({ behavior: "smooth" });
     }
 
+    if (status === "loading") return <PageLoader label="Loading your card..." />;
+    if (status === "error") {
+        return (
+            <ErrorState
+                title="Couldn't load your card"
+                message={loadError}
+                onRetry={() => {
+                    setStatus("loading");
+                    load();
+                }}
+            />
+        );
+    }
     return (
         <main className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:py-10">
             <header className="flex flex-wrap items-end justify-between gap-4">
@@ -92,9 +118,8 @@ export default function Card() {
             >
                 {/* Card face */}
                 <div
-                    className={`bg-grid relative isolate flex aspect-[1.68/1] min-h-56 flex-col justify-between overflow-hidden rounded-xl border border-primary/30 bg-card p-5 shadow-glow transition sm:p-8 ${
-                        frozen ? "opacity-60 grayscale" : ""
-                    }`}
+                    className={`bg-grid relative isolate flex aspect-[1.68/1] min-h-56 flex-col justify-between overflow-hidden rounded-xl border border-primary/30 bg-card p-5 shadow-glow transition sm:p-8 ${frozen ? "opacity-60 grayscale" : ""
+                        }`}
                 >
                     <div className="pointer-events-none absolute -right-12 -top-20 size-64 rounded-full border border-primary/20 bg-primary/5" />
                     <div className="pointer-events-none absolute -bottom-24 left-1/3 size-64 rounded-full border border-primary/15" />
@@ -207,9 +232,8 @@ export default function Card() {
                             return (
                                 <div key={tx.id} className="flex items-center gap-3 px-4 py-3.5">
                                     <span
-                                        className={`grid size-9 shrink-0 place-items-center rounded-full ${
-                                            outgoing ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
-                                        }`}
+                                        className={`grid size-9 shrink-0 place-items-center rounded-full ${outgoing ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
+                                            }`}
                                     >
                                         {outgoing ? <ArrowUpRight className="size-4" /> : <ArrowDownLeft className="size-4" />}
                                     </span>

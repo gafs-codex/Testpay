@@ -139,11 +139,16 @@ function drawReceipt(row, note) {
 }
 
 // `id` is a transaction id or a payment id. `note` is your own memo, if you have one.
-export async function downloadReceipt(supabase, id, note) {
+// Look up one transaction or payment by its full ID
+export async function fetchTransaction(supabase, id) {
     const { data, error } = await supabase.rpc("lookup_transaction", { p_id: id });
-    const row = data?.[0];
-    if (error || !row) throw new Error("Couldn't load this transaction.");
+    if (error) throw error;
+    if (!data?.[0]) throw new Error("Transaction not found.");
+    return data[0];
+}
 
+// Draw the receipt image for an already-loaded row and download it
+export async function saveReceipt(row, note) {
     const blob = await drawReceipt(row, note);
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -153,4 +158,9 @@ export async function downloadReceipt(supabase, id, note) {
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Kept so ReceiptButton keeps working (Explorer and pay page)
+export async function downloadReceipt(supabase, id, note) {
+    await saveReceipt(await fetchTransaction(supabase, id), note);
 }

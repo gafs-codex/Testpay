@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import ReceiptButton from "@/components/ReceiptButton";
 import { statusClass } from "@/lib/format";
+import Spinner from "@/components/Spinner";
+import { friendlyError } from "@/lib/error";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -34,13 +36,15 @@ export default function ExplorerPage() {
                 setState({ view: "invalid" });
                 return;
             }
+
             setState({ view: "loading" });
-            const { data, error } = await supabase.rpc("lookup_transaction", { p_id: id });
-            if (error) {
-                setState({ view: "error" });
-                return;
+            try {
+                const { data, error } = await supabase.rpc("lookup_transaction", { p_id: id });
+                if (error) throw error;
+                setState(data?.[0] ? { view: "found", row: data[0] } : { view: "notfound" });
+            } catch (error) {
+                setState({ view: "error", message: friendlyError(error, PROBLEMS.error) });
             }
-            setState(data?.[0] ? { view: "found", row: data[0] } : { view: "notfound" });
         },
         [supabase]
     );
@@ -91,8 +95,11 @@ export default function ExplorerPage() {
                         <button
                             type="submit"
                             disabled={state.view === "loading"}
-                            className="h-12 cursor-pointer rounded-lg bg-primary px-7 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="h-12 cursor-pointer rounded-lg bg-primary px-7 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center justify-center gap-2"
                         >
+                            {state.view === "loading" && (
+                                <Spinner className="size-4 border-primary-foreground/30 border-t-primary-foreground" />
+                            )}
                             {state.view === "loading" ? "Looking up..." : "Look up transaction"}
                         </button>
                     </form>
@@ -157,7 +164,7 @@ export default function ExplorerPage() {
                         </div>
                     ) : PROBLEMS[state.view] ? (
                         <p role="alert" className="py-6 text-center text-sm text-destructive">
-                            {PROBLEMS[state.view]}
+                            {state.message ?? PROBLEMS[state.view]}
                         </p>
                     ) : (
                         <div className="py-6 text-center">

@@ -1,11 +1,14 @@
 "use client";
-
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { shortId } from "@/lib/format";
-import ReceiptButton from "@/components/ReceiptButton"; // new
+import ReceiptButton from "@/components/ReceiptButton";
+import ErrorState from "@/components/ErrorState";
+import { PageLoader } from "@/components/Spinner";
+import { friendlyError } from "@/lib/error";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -53,28 +56,32 @@ export default function PayPage() {
     const [view, setView] = useState("loading"); // loading | ready | missing | error
     const [paying, setPaying] = useState(false);
 
-    const load = useCallback(async () => {
-        if (!UUID.test(id)) {
-            setView("missing");
-            return;
-        }
-        const [payRes, walletRes] = await Promise.all([
-            supabase.rpc("get_payment", { p_id: id }),
-            supabase.from("wallets").select("balance").single(),
-        ]);
-        if (payRes.error || walletRes.error) {
-            setView("error");
-            return;
-        }
-        const found = payRes.data?.[0];
-        if (!found) {
-            setView("missing");
-            return;
-        }
-        setPayment(found);
-        setBalance(walletRes.data.balance);
-        setView("ready");
-    }, [supabase, id]);
+    try {
+        const load = useCallback(async () => {
+            if (!UUID.test(id)) {
+                setView("missing");
+                return;
+            }
+            const [payRes, walletRes] = await Promise.all([
+                supabase.rpc("get_payment", { p_id: id }),
+                supabase.from("wallets").select("balance").single(),
+            ]);
+            if (payRes.error || walletRes.error) {
+                setView("error");
+                return;
+            }
+            const found = payRes.data?.[0];
+            if (!found) {
+                setView("missing");
+                return;
+            }
+            setPayment(found);
+            setBalance(walletRes.data.balance);
+            setView("ready");
+        }, [supabase, id]);
+    } catch {
+        setView("error");
+    }
 
     useEffect(() => {
         load();
@@ -109,10 +116,22 @@ export default function PayPage() {
         }
     }
 
+    if (view === "loading") {
+        return (
+            <Shell>
+                <PageLoader label="Loading payment..." className="py-10" />
+            </Shell>
+        );
+    }
     if (view !== "ready") {
         return (
             <Shell>
-                <p className="text-center text-sm text-muted-foreground">{MESSAGES[view]}</p>
+                <ErrorState
+                    className="py-6"
+                    title={view === "missing" ? "Payment not found" : "Couldn't load this payment"}
+                    message={MESSAGES[view]}
+                    onRetry={view === "error" ? () => { setView("loading"); load(); } : undefined}
+                />
             </Shell>
         );
     }
@@ -186,15 +205,29 @@ export default function PayPage() {
                 )}
 
                 {/* Paid or canceled: no copy link, no pay button */}
+                {/* Paid or canceled: show the result, then a way back */}
                 {!pending && (
-                    <p
-                        role="status"
-                        className={`text-center text-sm ${canceled ? "text-destructive" : "text-primary"}`}
-                    >
-                        {canceled
-                            ? "This payment was canceled and can no longer be paid."
-                            : "This payment has been paid."}
-                    </p>
+                    <>
+                        <p
+                            role="status"
+                            className={`text-center text-sm ${canceled ? "text-destructive" : "text-primary"}`}
+                        >
+                            {canceled
+                                ? "This payment was canceled and can no longer be paid."
+                                : "This payment has been paid."}
+                        </p>
+
+                        {payment.status === "paid" && (
+                            <ReceiptButton id={payment.id} label="Download receipt" className={blockButton} />
+                        )}
+
+                        <Link
+                            href={payment.is_owner ? "/payments" : "/wallet"}
+                            className={blockButton}
+                        >
+                            {payment.is_owner ? "← Back to payments" : "← Back to wallet"}
+                        </Link>
+                    </>
                 )}
 
                 {payment.status === "paid" && (

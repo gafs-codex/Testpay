@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
 import { createClient } from "@/lib/supabase/client";
+import { friendlyError } from "@/lib/error";
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -32,11 +33,11 @@ export default function RegisterPage() {
                 });
 
             if (googleError) {
-                setError(googleError.message);
+                setError(friendlyError(googleError));
                 setIsGoogleLoading(false);
             }
         } catch (err) {
-            setError("Unable to sign up with Google. Please try again.");
+            setError(friendlyError(err));
             console.error("Google sign-up error:", err);
             setIsGoogleLoading(false);
         }
@@ -76,7 +77,7 @@ export default function RegisterPage() {
             });
 
             if (signUpError) {
-                setError(signUpError.message);
+                setError(friendlyError(signUpError));
                 return;
             }
 
@@ -92,20 +93,20 @@ export default function RegisterPage() {
                 "Your account has been created! Please check your email to confirm your account before signing in."
             );
         } catch (err) {
-            setError("Something went wrong. Please try again.");
+            setError(friendlyError(err));
             console.error("Registration error:", err);
         } finally {
             setIsSubmitting(false);
         }
     }
 
-    function clearRegistrationForm() {
-        setName("");
-        setEmail("");
-        setPassword("");
-        setError("");
-        setSuccess("");
-    }
+    // function clearRegistrationForm() {
+    //     setName("");
+    //     setEmail("");
+    //     setPassword("");
+    //     setError("");
+    //     setSuccess("");
+    // }
 
     return (
         <main className="bg-grid flex min-h-[calc(100dvh-3.5rem)] items-center justify-center px-4 py-8">
@@ -222,7 +223,7 @@ export default function RegisterPage() {
                     Have an account?
                     <Link
                         href="/login"
-                        onClick={clearRegistrationForm}
+                        // onClick={clearRegistrationForm}
                         className="hover:text-foreground hover:underline"
                     >
                         Sign in

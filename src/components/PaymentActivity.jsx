@@ -12,6 +12,7 @@ import {
     ResponsiveContainer,
 } from "recharts";
 import { createClient } from "@/lib/supabase/client";
+import Spinner from "./Spinner";
 
 const axisStyle = {
     fill: "#8A9B94",
@@ -180,8 +181,8 @@ export default function PaymentActivity() {
                             type="button"
                             onClick={() => setSelectedDays(filter.days)}
                             className={`cursor-pointer rounded-md px-3 py-1.5 font-mono text-xs transition-colors ${selectedDays === filter.days
-                                    ? "bg-primary text-primary-foreground"
-                                    : "text-muted-foreground hover:text-foreground"
+                                ? "bg-primary text-primary-foreground"
+                                : "text-muted-foreground hover:text-foreground"
                                 }`}
                         >
                             {filter.label}
@@ -197,7 +198,7 @@ export default function PaymentActivity() {
                     </p>
                 ) : !events ? (
                     <p className="grid h-full place-items-center text-sm text-muted-foreground">
-                        Loading...
+                        <div className="grid h-full place-items-center"><Spinner /></div>
                     </p>
                 ) : (
                     <ResponsiveContainer width="100%" height="100%">

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import PaymentActivity from "@/components/PaymentActivity";
 import Field from "@/components/Field";
@@ -9,9 +8,15 @@ import { createClient } from "@/lib/supabase/client";
 import { formatAmount, amountColor } from "@/lib/format";
 import ReceiptButton from "@/components/ReceiptButton";
 import { shortId } from "@/lib/format"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import FaucetCard from "@/components/FaucetCard";
+import ViewButton from "@/components/ViewButton";
+import ErrorState from "@/components/ErrorState";
+import { PageLoader } from "@/components/Spinner";
+import { friendlyError } from "@/lib/error";
 
 const LEDGER_FILTERS = ["All", "Faucet", "Payment", "Transfer"];
-const COOLDOWN_MS = 6 * 60 * 60 * 1000;
+// const COOLDOWN_MS = 6 * 60 * 60 * 1000;
 const ADDRESS_PATTERN = /^tp_[a-f0-9]{20}$/;
 const initialSend = { wallet: "", amount: "", memo: "" };
 
@@ -23,32 +28,45 @@ export default function WalletPage() {
     const [filter, setFilter] = useState("All");
     const [sendForm, setSendForm] = useState(initialSend);
     const [copied, setCopied] = useState(false);
-    const [claiming, setClaiming] = useState(false);
+    // const [claiming, setClaiming] = useState(false);
     const [sending, setSending] = useState(false);
     const [search, setSearch] = useState("");
+    const [status, setStatus] = useState("loading"); // loading | ready | error
+    const [loadError, setLoadError] = useState("");
+    const loadedOnce = useRef(false);
+
 
     const load = useCallback(async () => {
-        const [walletRes, txRes] = await Promise.all([
-            supabase.from("wallets").select("address, balance, last_claim_at").single(),
-            supabase.from("transactions").select("*").order("created_at", { ascending: false }).limit(50),
-        ]);
+        try {
+            const [walletRes, txRes] = await Promise.all([
+                supabase.from("wallets").select("address, balance, last_claim_at").single(),
+                supabase.from("transactions").select("*").order("created_at", { ascending: false }).limit(50),
+            ]);
+            if (walletRes.error) throw walletRes.error;
+            if (txRes.error) throw txRes.error;
 
-        if (walletRes.error || txRes.error) {
-            toast.error("Couldn't load your wallet. Please refresh the page.");
-            return;
+            setWallet(walletRes.data);
+            setTransactions(txRes.data);
+            loadedOnce.current = true;
+            setStatus("ready");
+        } catch (error) {
+            const message = friendlyError(error, "Couldn't load your wallet.");
+            if (loadedOnce.current) toast.error(message); // already showing data: keep it, just warn
+            else {
+                setLoadError(message);
+                setStatus("error");
+            }
         }
-        setWallet(walletRes.data);
-        setTransactions(txRes.data);
     }, [supabase]);
 
     useEffect(() => {
         load();
     }, [load]);
 
-    const nextClaimAt = wallet?.last_claim_at
-        ? new Date(wallet.last_claim_at).getTime() + COOLDOWN_MS
-        : 0;
-    const onCooldown = nextClaimAt > Date.now();
+    // const nextClaimAt = wallet?.last_claim_at
+    //     ? new Date(wallet.last_claim_at).getTime() + COOLDOWN_MS
+    //     : 0;
+    // const onCooldown = nextClaimAt > Date.now();
 
     const payments = transactions.filter((t) => t.type === "payment");
     const statCards = [
@@ -77,20 +95,20 @@ export default function WalletPage() {
         }
     }
 
-    async function handleClaim() {
-        setClaiming(true);
-        try {
-            const { error } = await supabase.rpc("claim_faucet");
-            if (error) {
-                toast.error(error.message);
-                return;
-            }
-            toast.success("1,000 TC added to your wallet.");
-            await load();
-        } finally {
-            setClaiming(false);
-        }
-    }
+    // async function handleClaim() {
+    //     setClaiming(true);
+    //     try {
+    //         const { error } = await supabase.rpc("claim_faucet");
+    //         if (error) {
+    //             toast.error(error.message);
+    //             return;
+    //         }
+    //         toast.success("1,000 TC added to your wallet.");
+    //         await load();
+    //     } finally {
+    //         setClaiming(false);
+    //     }
+    // }
 
     function handleSendChange(event) {
         const { name, value } = event.target;
@@ -142,6 +160,20 @@ export default function WalletPage() {
         }
     }
 
+    if (status === "loading") return <PageLoader label="Loading your wallet..." />;
+    if (status === "error") {
+        return (
+            <ErrorState
+                title="Couldn't load your wallet"
+                message={loadError}
+                onRetry={() => {
+                    setStatus("loading");
+                    load();
+                }}
+            />
+        );
+    }
+
     return (
         <main className="mx-auto w-full max-w-[1440px] space-y-6 px-6 py-8 lg:px-8">
 
@@ -176,37 +208,7 @@ export default function WalletPage() {
                 </div>
 
                 {/* Faucet */}
-                <div className="flex flex-col justify-between rounded-xl border border-border bg-card p-6">
-                    <div>
-                        <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Faucet</p>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                            Claim 1,000 free TestCoin every 6 hours.
-                        </p>
-                        {onCooldown && (
-                            <p className="mt-2 font-mono text-xs text-muted-foreground">
-                                Next claim: {new Date(nextClaimAt).toLocaleTimeString()}
-                            </p>
-                        )}
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={handleClaim}
-                        disabled={claiming || !wallet || onCooldown}
-                        className="mt-6 inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-8 text-sm font-semibold text-primary-foreground shadow-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
-                    >
-                        {claiming ? "Claiming..." : "Claim 1,000 TestCoin"}
-                    </button>
-
-
-                    <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-8 rounded-md px-3 text-xs mt-3 w-full">
-                        ↑ Request limit increase
-                    </button>
-
-                    <p className="mt-3 text-center font-mono text-[10px] text-muted-foreground">
-                        Current limit: 1,000  TC · Every 6  hours
-                    </p>
-                </div>
+                <FaucetCard lastClaimAt={wallet?.last_claim_at} walletReady={Boolean(wallet)} onClaimed={load} />
             </section>
 
             {/* Stats */}
@@ -317,7 +319,7 @@ export default function WalletPage() {
                                         </p>
                                         <p className="text-xs text-muted-foreground">{new Date(tx.created_at).toLocaleString()}</p>
                                         {tx.type !== "faucet" && (
-                                            <ReceiptButton id={tx.id} note={tx.memo} className="mt-1 inline-flex cursor-pointer items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50" />
+                                            <ViewButton id={tx.id} note={tx.memo} />
                                         )}
                                     </div>
                                 </li>

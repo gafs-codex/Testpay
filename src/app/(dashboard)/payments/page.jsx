@@ -8,6 +8,10 @@ import { createClient } from "@/lib/supabase/client";
 import { shortId, statusClass } from "@/lib/format";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import ReceiptButton from "@/components/ReceiptButton";
+import ErrorState from "@/components/ErrorState";
+import Spinner from "@/components/Spinner";
+import { friendlyError } from "@/lib/error";
+import ViewButton from "@/components/ViewButton";
 
 const FILTERS = ["all", "pending", "paid", "canceled"];
 const initialForm = { amount: "", description: "", success_url: "", cancel_url: "", webhook_url: "" };
@@ -32,6 +36,7 @@ export default function Payments() {
     const [creating, setCreating] = useState(false);
     const [toCancel, setToCancel] = useState(null); // the payment waiting for confirmation
     const [canceling, setCanceling] = useState(false);
+    const [loadError, setLoadError] = useState("")
 
     async function confirmCancel() {
         setCanceling(true);
@@ -47,15 +52,20 @@ export default function Payments() {
     }
 
     const load = useCallback(async () => {
-        const { data, error } = await supabase
-            .from("payments")
-            .select("id, amount, description, status, created_at")
-            .order("created_at", { ascending: false })
-            .limit(50);
-
-        if (error) toast.error("Couldn't load your payments. Please refresh the page.");
-        else setPayments(data);
-        setLoading(false);
+        try {
+            const { data, error } = await supabase
+                .from("payments")
+                .select("id, amount, description, status, created_at")
+                .order("created_at", { ascending: false })
+                .limit(50);
+            if (error) throw error;
+            setPayments(data);
+            setLoadError("");
+        } catch (error) {
+            setLoadError(friendlyError(error, "Couldn't load your payments."));
+        } finally {
+            setLoading(false);
+        }
     }, [supabase]);
 
     useEffect(() => {
@@ -182,7 +192,16 @@ export default function Payments() {
 
                 <ul className="divide-y">
                     {loading ? (
-                        <li className="p-8 text-center text-sm text-muted-foreground">Loading...</li>
+                        <li className="grid place-items-center p-12"><Spinner /></li>
+                    ) : loadError ? (
+                        <li>
+                            <ErrorState
+                                className="py-10"
+                                title="Couldn't load payments"
+                                message={loadError}
+                                onRetry={() => { setLoading(true); load(); }}
+                            />
+                        </li>
                     ) : visible.length === 0 ? (
                         <li className="p-8 text-center text-sm text-muted-foreground">No payments yet.</li>
                     ) : (
@@ -212,7 +231,7 @@ export default function Payments() {
                                         Cancel
                                     </button>
                                 )}
-                                {p.status === "paid" && <ReceiptButton id={p.id} />}
+                                <ViewButton id={p.id} />
                                 <Link href={`/pay/${p.id}`} className="text-xs font-medium text-primary hover:underline">
                                     Open
                                 </Link>

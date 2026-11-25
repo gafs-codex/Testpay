@@ -1,28 +1,22 @@
-// app/(dashboard)/layout.jsx
-import { Suspense } from "react";
-import { redirect } from "next/navigation";
 import DashboardNavbar from "@/components/DashboardNavbar";
-import { getCurrentUser } from "@/lib/auth";
+import OfflineBanner from "@/components/OfflineBanner";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
-async function AuthedShell({ children }) {
+export default async function DashboardLayout({ children }) {
     const user = await getCurrentUser();
 
     if (!user) {
         redirect("/login");
     }
 
+    const admin = await isAdmin();
+
     return (
         <>
-            <DashboardNavbar email={user.email} />
+            <OfflineBanner />
+            <DashboardNavbar email={user.email} isAdmin={admin} />
             {children}
         </>
-    );
-}
-
-export default function DashboardLayout({ children }) {
-    return (
-        <Suspense fallback={<div className="min-h-dvh" />}>
-            <AuthedShell>{children}</AuthedShell>
-        </Suspense>
     );
 }

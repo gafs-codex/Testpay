@@ -6,6 +6,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
 import { createClient } from "@/lib/supabase/client";
+import { friendlyError } from "@/lib/error";
+
+function getNext() {
+    const next = new URLSearchParams(window.location.search).get("next");
+    return next && next.startsWith("/") && !next.startsWith("//") ? next : "/wallet";
+}
 
 export default function LoginPage() {
     const router = useRouter();
@@ -38,24 +44,21 @@ export default function LoginPage() {
                 });
 
             if (loginError) {
-                setError(loginError.message);
+                setError(friendlyError(loginError));
                 return;
             }
 
-            router.push("/wallet");
+            router.push(getNext());
             router.refresh();
         } catch (err) {
-            setError("Something went wrong. Please try again.");
+            setError(friendlyError(err));
             console.error("Login error:", err);
         } finally {
             setIsSubmitting(false);
         }
     }
 
-    function getNext() {
-        const next = new URLSearchParams(window.location.search).get("next");
-        return next && next.startsWith("/") && !next.startsWith("//") ? next : "/wallet";
-    }
+
 
     async function handleGoogleSignIn() {
         setError("");
@@ -71,11 +74,11 @@ export default function LoginPage() {
                 });
 
             if (googleError) {
-                setError(googleError.message);
+                setError(friendlyError(googleError));
                 setIsGoogleLoading(false);
             }
         } catch (err) {
-            setError("Unable to sign in with Google. Please try again.");
+            setError(friendlyError(err));
             console.error("Google sign-in error:", err);
             setIsGoogleLoading(false);
         }

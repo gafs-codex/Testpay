@@ -5,6 +5,7 @@ import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { downloadReceipt } from "@/lib/receipt";
+import { friendlyError } from "@/lib/error";
 
 const linkStyle =
     "inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50";
@@ -18,7 +19,7 @@ export default function ReceiptButton({ id, note, label = "Receipt", className }
             await downloadReceipt(createClient(), id, note);
             toast.success("Receipt downloaded.");
         } catch (err) {
-            toast.error(err.message);
+            toast.error(friendlyError(err, "Couldn't download the receipt."))
         } finally {
             setBusy(false);
         }

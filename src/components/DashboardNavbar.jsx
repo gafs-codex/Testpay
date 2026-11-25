@@ -14,7 +14,8 @@ const links = [
     { href: "/explorer", label: "Explorer" }, // ✅ Fixed — was /explore
 ];
 
-export default function DashboardNavbar({ email }) {
+export default function DashboardNavbar({ email, isAdmin = false }) {
+    const items = isAdmin ? [...links, { href: "/admin", label: "Admin" }] : links;
 
     const [showLogoutDialog, setShowLogoutDialog] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -51,15 +52,17 @@ export default function DashboardNavbar({ email }) {
                     <button
                         type="button"
                         onClick={() => setShowLogoutDialog(true)}
-                        className="font-mono text-xl font-bold text-foreground flex gap-2"
+                        className="font-mono text-xl font-bold text-foreground flex gap-2 cursor-pointer"
                     >
                         <span className="grid h-7 w-7 place-items-center rounded-md bg-primary text-primary-foreground">₮</span>
 
-                        testpay<span className="text-primary animate-blink">_</span>
+                        <div>
+                            testpay<span className="text-primary animate-blink">_</span>
+                        </div>
                     </button>
 
                     <div className="flex flex-wrap items-center gap-5">
-                        {links.map((link) => {
+                        {items.map((link) => {
                             const isActive = pathname === link.href;
                             return (
                                 <Link

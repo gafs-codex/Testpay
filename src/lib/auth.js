@@ -14,3 +14,9 @@ export async function getCurrentUser() {
 
     return user;
 }
+
+export async function isAdmin() {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("is_admin");
+    return !error && data === true;
+}
